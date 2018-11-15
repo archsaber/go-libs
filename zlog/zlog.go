@@ -21,30 +21,33 @@ var cutPathLen int
 
 func init() {
 
-	if os.Getenv("SENTRY") == "true" {
-		initSentryZap()
+	consoleCore := giveConsoleCore()
+	cores := []zapcore.Core{consoleCore}
+
+	archEnv := os.Getenv("ARCH_ENV")
+
+	if archEnv == "DEV" {
+		logger, _ := zap.NewDevelopment()
+		zap.ReplaceGlobals(logger)
 		return
 	}
+
+	if os.Getenv("SENTRY") == "true" {
+		fmt.Println("USING SENTRY")
+		cores = append(cores, giveSentryCore())
+	}
+
+	fmt.Println("SENTRY", os.Getenv("SENTRY"))
+
+	teeCore := zapcore.NewTee(cores...)
+	dLogger := zap.New(teeCore, zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
+
+	zap.ReplaceGlobals(dLogger)
 }
 
-func initSentryZap() {
-
-	sentryDSN := os.Getenv("SENTRY_DSN")
-	archENV := os.Getenv("ARCH_ENV")
-
-	if archENV == "DEV" {
-		sentryDSN = os.Getenv("DEV_SENTRY_DSN")
-	}
-
-	client, err := raven.New(sentryDSN)
-	if err != nil {
-		panic(err)
-	}
-
-	setnryCore := zapsentry.NewCore(zapcore.ErrorLevel, client)
-
+func giveConsoleCore() zapcore.Core {
 	// -------------------------
-
+	archENV := os.Getenv("ARCH_ENV")
 	cutPathLen = len(os.Getenv("PWD")) + 5
 	pathEncoder := func(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 
@@ -95,6 +98,7 @@ func initSentryZap() {
 	datetimePrefix := time.Now().Format("2006-01-28-15-04-05")
 
 	pathLog := logDir + "/log/" + archENV + datetimePrefix + ".log"
+
 	// pathDebug := home + "/log/aws-nom.debug"
 
 	fLog, err := os.OpenFile(pathLog, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
@@ -109,18 +113,25 @@ func initSentryZap() {
 
 	consoleEncoder := zapcore.NewConsoleEncoder(consoleConf)
 
-	core := zapcore.NewTee(
-		// zapcore.NewCore(consoleEncoder, consoleDebugOut, debugLevel),
-		zapcore.NewCore(consoleEncoder, consoleLogOut, allPriority),
-		setnryCore,
-	)
+	return zapcore.NewCore(consoleEncoder, consoleLogOut, allPriority)
 
-	logger := zap.New(core)
+}
 
-	zap.ReplaceGlobals(logger)
+func giveSentryCore() zapcore.Core {
+	sentryDSN := os.Getenv("SENTRY_DSN")
+	archENV := os.Getenv("ARCH_ENV")
 
-	fmt.Println("Using zap with sentry")
+	if archENV == "DEV" {
+		sentryDSN = os.Getenv("DEV_SENTRY_DSN")
+	}
 
+	client, err := raven.New(sentryDSN)
+	if err != nil {
+		panic(err)
+	}
+
+	setnryCore := zapsentry.NewCore(zapcore.ErrorLevel, client)
+	return setnryCore
 }
 
 // Cl impl
