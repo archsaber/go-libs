@@ -32,6 +32,10 @@ func initSentryZap() {
 	sentryDSN := os.Getenv("SENTRY_DSN")
 	archENV := os.Getenv("ARCH_ENV")
 
+	if archENV == "DEV" {
+		sentryDSN = os.Getenv("DEV_SENTRY_DSN")
+	}
+
 	client, err := raven.New(sentryDSN)
 	if err != nil {
 		panic(err)
