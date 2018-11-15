@@ -26,7 +26,7 @@ func init() {
 
 	archEnv := os.Getenv("ARCH_ENV")
 
-	if archEnv == "DEV" {
+	if archEnv == "DEV" && os.Getenv("SENTRY") != "true" {
 		logger, _ := zap.NewDevelopment()
 		zap.ReplaceGlobals(logger)
 		return
