@@ -127,6 +127,11 @@ func giveSentryCore() zapcore.Core {
 		logLevel = zapcore.InfoLevel
 	}
 
+	logLevelEnv := os.Getenv("SENTRY_LOG_LEVEL")
+	if logLevelEnv == "WARN" {
+		logLevel = zapcore.WarnLevel
+	}
+
 	client, err := raven.New(sentryDSN)
 	if err != nil {
 		panic(err)
