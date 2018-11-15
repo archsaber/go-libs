@@ -120,9 +120,11 @@ func giveConsoleCore() zapcore.Core {
 func giveSentryCore() zapcore.Core {
 	sentryDSN := os.Getenv("SENTRY_DSN")
 	archENV := os.Getenv("ARCH_ENV")
+	logLevel := zapcore.ErrorLevel
 
 	if archENV == "DEV" {
 		sentryDSN = os.Getenv("DEV_SENTRY_DSN")
+		logLevel = zapcore.InfoLevel
 	}
 
 	client, err := raven.New(sentryDSN)
@@ -130,7 +132,7 @@ func giveSentryCore() zapcore.Core {
 		panic(err)
 	}
 
-	setnryCore := zapsentry.NewCore(zapcore.ErrorLevel, client)
+	setnryCore := zapsentry.NewCore(logLevel, client)
 	return setnryCore
 }
 
