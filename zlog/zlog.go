@@ -95,9 +95,10 @@ func giveConsoleCore() zapcore.Core {
 		logDir = pDir
 	}
 
-	datetimePrefix := time.Now().Format("2006-01-28-15-04-05")
+	tNow := time.Now()
+	datetimePrefix := fmt.Sprintf("%d_%02d_%02d", tNow.Year(), tNow.Month(), tNow.Day())
 
-	pathLog := logDir + "/log/" + archENV + datetimePrefix + ".log"
+	pathLog := logDir + "/log/" + archENV + "_" + datetimePrefix + ".log"
 
 	// pathDebug := home + "/log/aws-nom.debug"
 
