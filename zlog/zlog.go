@@ -51,7 +51,11 @@ func giveConsoleCore() zapcore.Core {
 	cutPathLen = len(os.Getenv("PWD")) + 5
 	pathEncoder := func(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 
-		filePath := caller.String()[cutPathLen:]
+		filePath := caller.String()
+
+		if len(filePath) > cutPathLen {
+			filePath = filePath[cutPathLen:]
+		}
 
 		var pathString string
 		if len(filePath) > 32 {
