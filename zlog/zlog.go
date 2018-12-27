@@ -6,7 +6,7 @@ import (
 
 	"time"
 
-	"github.com/getsentry/raven-go"
+	raven "github.com/getsentry/raven-go"
 	"github.com/tchap/zapext/zapsentry"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -93,16 +93,22 @@ func giveConsoleCore() zapcore.Core {
 	home := os.Getenv("HOME")
 	pDir := os.Getenv("PROJECT_DIR")
 
-	logDir := home
+	logDir := home + "/log/"
 
 	if pDir != "" {
-		logDir = pDir
+		logDir = pDir + "/log/"
 	}
 
 	tNow := time.Now()
 	datetimePrefix := fmt.Sprintf("%d_%02d_%02d", tNow.Year(), tNow.Month(), tNow.Day())
 
-	pathLog := logDir + "/log/" + archENV + "_" + datetimePrefix + ".log"
+	err := os.MkdirAll(logDir, 0755)
+
+	if err != nil {
+		panic(err)
+	}
+
+	pathLog := logDir + archENV + "_" + datetimePrefix + ".log"
 
 	// pathDebug := home + "/log/aws-nom.debug"
 
@@ -141,6 +147,9 @@ func giveSentryCore() zapcore.Core {
 	if err != nil {
 		panic(err)
 	}
+
+	client.SetEnvironment(os.Getenv("ARCH_ENV"))
+	client.SetRelease(os.Getenv("ARCH_RELEASE"))
 
 	setnryCore := zapsentry.NewCore(logLevel, client)
 	return setnryCore
