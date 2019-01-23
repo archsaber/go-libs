@@ -17,27 +17,25 @@ func GiveLogger() *zap.SugaredLogger {
 	return zap.L().Sugar()
 }
 
-var cutPathLen int
+var (
+	cutPathLen     int
+	releaseVersion string
+)
 
 func init() {
-
-	consoleCore := giveConsoleCore()
-	cores := []zapcore.Core{consoleCore}
-
 	archEnv := os.Getenv("ARCH_ENV")
-
 	if archEnv == "DEV" && os.Getenv("SENTRY") != "true" {
 		logger, _ := zap.NewDevelopment()
 		zap.ReplaceGlobals(logger)
 		return
 	}
 
+	consoleCore := giveConsoleCore()
+	cores := []zapcore.Core{consoleCore}
+
 	if os.Getenv("SENTRY") == "true" {
-		fmt.Println("USING SENTRY")
 		cores = append(cores, giveSentryCore())
 	}
-
-	fmt.Println("SENTRY", os.Getenv("SENTRY"))
 
 	teeCore := zapcore.NewTee(cores...)
 	dLogger := zap.New(teeCore, zap.AddCaller(), zap.AddStacktrace(zap.ErrorLevel))
@@ -46,8 +44,6 @@ func init() {
 }
 
 func giveConsoleCore() zapcore.Core {
-	// -------------------------
-	archENV := os.Getenv("ARCH_ENV")
 	cutPathLen = len(os.Getenv("PWD")) + 5
 	pathEncoder := func(caller zapcore.EntryCaller, enc zapcore.PrimitiveArrayEncoder) {
 
@@ -69,71 +65,47 @@ func giveConsoleCore() zapcore.Core {
 	}
 
 	tLoc, _ := time.LoadLocation("Asia/Kolkata")
-
 	timeEncoder := func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
 		enc.AppendString(t.In(tLoc).Format("2006 Jan _2 15:04:05"))
 	}
 
-	// -------------------------
-
 	consoleConf := zap.NewDevelopmentEncoderConfig()
-
 	consoleConf.EncodeLevel = zapcore.CapitalColorLevelEncoder
 	consoleConf.EncodeTime = timeEncoder
 	consoleConf.EncodeCaller = pathEncoder
 
-	// debugLevel := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-	// 	return lvl == zapcore.DebugLevel
-	// })
-
-	allPriority := zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
-		return lvl >= zapcore.DebugLevel
-	})
-
-	home := os.Getenv("HOME")
 	pDir := os.Getenv("PROJECT_DIR")
-
-	logDir := home + "/log/"
-
+	logDir := os.Getenv("HOME") + "/log/"
 	if pDir != "" {
 		logDir = pDir + "/log/"
 	}
 
+	err := os.MkdirAll(logDir, 0755)
+	if err != nil {
+		panic(err)
+	}
+
 	tNow := time.Now()
 	datetimePrefix := fmt.Sprintf("%d_%02d_%02d", tNow.Year(), tNow.Month(), tNow.Day())
-
-	err := os.MkdirAll(logDir, 0755)
-
-	if err != nil {
-		panic(err)
-	}
-
-	pathLog := logDir + archENV + "_" + datetimePrefix + ".log"
-
-	// pathDebug := home + "/log/aws-nom.debug"
-
+	pathLog := logDir + os.Getenv("ARCH_ENV") + "_" + datetimePrefix + ".log"
 	fLog, err := os.OpenFile(pathLog, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-	// fDebug, err := os.OpenFile(pathDebug, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-
 	if err != nil {
 		panic(err)
 	}
 
-	consoleLogOut := zapcore.Lock(zapcore.NewMultiWriteSyncer(fLog))
-	// consoleDebugOut := zapcore.Lock(zapcore.NewMultiWriteSyncer(fDebug))
-
-	consoleEncoder := zapcore.NewConsoleEncoder(consoleConf)
-
-	return zapcore.NewCore(consoleEncoder, consoleLogOut, allPriority)
-
+	return zapcore.NewCore(
+		zapcore.NewConsoleEncoder(consoleConf),
+		zapcore.Lock(zapcore.NewMultiWriteSyncer(fLog)),
+		zap.LevelEnablerFunc(func(lvl zapcore.Level) bool {
+			return lvl >= zapcore.DebugLevel
+		}),
+	)
 }
 
 func giveSentryCore() zapcore.Core {
 	sentryDSN := os.Getenv("SENTRY_DSN")
-	archENV := os.Getenv("ARCH_ENV")
 	logLevel := zapcore.ErrorLevel
-
-	if archENV == "DEV" {
+	if os.Getenv("ARCH_ENV") == "DEV" {
 		sentryDSN = os.Getenv("DEV_SENTRY_DSN")
 		logLevel = zapcore.InfoLevel
 	}
@@ -149,10 +121,9 @@ func giveSentryCore() zapcore.Core {
 	}
 
 	client.SetEnvironment(os.Getenv("ARCH_ENV"))
-	client.SetRelease(os.Getenv("ARCH_RELEASE"))
+	client.SetRelease(releaseVersion)
 
-	setnryCore := zapsentry.NewCore(logLevel, client)
-	return setnryCore
+	return zapsentry.NewCore(logLevel, client)
 }
 
 // Cl impl
