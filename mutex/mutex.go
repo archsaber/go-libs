@@ -3,6 +3,7 @@ package mutex
 import (
 	"errors"
 	"log"
+	"runtime"
 	"time"
 )
 
@@ -31,6 +32,9 @@ func (m *Mutex) Lock() {
 func (m *Mutex) Unlock() {
 	if m.Cap() < 1 {
 		log.Println("ERROR in archsaber/go-libs/mutex : unlock called with out taking the lock")
+		buf := make([]byte, 1<<16)
+		stackSize := runtime.Stack(buf, true)
+		log.Printf("%s\n", string(buf[0:stackSize]))
 		return
 	}
 	<-m.c
